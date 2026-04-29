@@ -3,7 +3,6 @@ import java.net.*;
 import java.util.Random;
 import java.lang.Thread;
 
-
 /**
  * virtuaalinen udp soketti
  * Reliability on top of UDP: Virtual Socket 2
@@ -11,8 +10,10 @@ import java.lang.Thread;
 
 public class VirtualSocket extends DatagramSocket 
 {
-    private static double p_drop = 0.5; // pudotetun paketin todennäiköisyys
-    private static double p_delay = 0.5; // viivästetyn paketin todennäiköisyys
+    private static final Random rand = new Random();
+    private static double p_drop = 0.5; // pudotetun paketin todennäköisyys
+    private static double p_delay = 0.5; // viivästetyn paketin todennäköisyydes
+    private static double p_error = 0.5; // virheellisen paketin todennäiköisyys
 
     // constructor ilman porttinumeroa
     public VirtualSocket() throws SocketException {
@@ -26,7 +27,6 @@ public class VirtualSocket extends DatagramSocket
     // paketin vastaanotto jossa on mahdollisuus pudotta paketti
     public void receive(DatagramPacket paketti) throws IOException {
         while (true) {  
-            Random rand = new Random();
             super.receive(paketti); // paketti vastaanotetaan normaalisti
             if (rand.nextDouble() <= p_drop) { // paketti pudotetaan 50% todennäköisyydellä
                 System.out.println("Packet dropped"); // does not pass the packet to the application
@@ -41,7 +41,14 @@ public class VirtualSocket extends DatagramSocket
                                 Thread.sleep(delay);
                         }   catch (InterruptedException e) {
                                 Thread.currentThread().interrupt();
-                                }
+                        }
+                    }
+                    if (paketti.getLength() > 0 && rand.nextDouble() <= p_error) { // generoidaan bittivirhe 50% todennäköisyydellä
+                        byte[] data = paketti.getData();
+                        int index = rand.nextInt(paketti.getLength()); // satunnainen indeksi paketissa
+                        int bit = rand.nextInt(8); // satunnainen bitti indeksin sisällä
+                        data[index] ^= (1 << bit); // käännetään yksi bitti
+                        System.out.println("Bit error generated at byte index " + index + ", bit " + bit);
                     }
                 return; // palataan käsittelemään loput paketit
             }
