@@ -8,7 +8,8 @@ import java.net.*;
 class TestApp {
     private static DatagramSocket soketti = null; // luodaan datagrammisoketti
     public static void main(String[] args) throws IOException {
-        soketti = new DatagramSocket(50267); // alustetaan soketti haluttuun porttiin
+       // soketti = new DatagramSocket(50267); // alustetaan soketti haluttuun porttiin
+        soketti = new VirtualSocket(50267); // alustetaan virtuaalinen soketti
         boolean listening = true;
         while (listening) {
             try {
