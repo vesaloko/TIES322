@@ -14,7 +14,7 @@ class TestApp {
         boolean listening = true;
         while (listening) {
             try {
-                    String message = reliabilityLayer.receive();
+                    String message = reliabilityLayer.receiveOnlyAck();
                     System.out.println("Received: " + message);
                 /* byte[] rec = new byte[256];
                 DatagramPacket paketti = new DatagramPacket(rec, rec.length);   // luodaan datagrammipaketti haluttuun porttiin

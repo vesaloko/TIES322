@@ -68,6 +68,7 @@ public class ReliabilityLayer {
 
                 socket.send(nack); // lähetetään paketti jossa teksti nak takasin lähettäjälle
                 continue;
+                // huom korruptoitunutta pakettia ei lähetetä sovelluselle
             }
         
             String text = getText(rec, length);
@@ -89,7 +90,6 @@ public class ReliabilityLayer {
                 
                 socket.send(ack);
 
-                // päivitetään odotettu sekvenssinumero seuraavaan
                 return text; // palautetaan vastaanotettu teksti sovellukselle!!!
             } 
         }
@@ -131,4 +131,36 @@ public class ReliabilityLayer {
         return packet[0];
     }
 
+    public String receiveOnlyAck() throws IOException {
+        while (true) {
+            byte[] rec = new byte[256];
+            DatagramPacket response = new DatagramPacket(rec, rec.length);
+
+            socket.receive(response);
+
+            int length = response.getLength();
+
+            if (isCorrupted(rec, length)) {
+                System.out.println("crc error no ack sent");
+                continue;
+            }
+            String text = getText(rec, length);
+
+            if (text.equals("ACK") || text.equals("NACK")) {
+                continue;
+            }
+
+            System.out.println("crc ok, sending ack");
+            byte[] ackBytes = makePacket((byte)0, "ACK");
+                DatagramPacket ack = new DatagramPacket(
+                        ackBytes,
+                        ackBytes.length,
+                        response.getAddress(),
+                        response.getPort()
+                );
+                
+                socket.send(ack);
+                return text;
+        }
+    }
 }
