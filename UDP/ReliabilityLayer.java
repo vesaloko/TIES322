@@ -3,20 +3,35 @@ import java.net.*;
 import java.nio.charset.StandardCharsets;
 
 /**
- * toteutetaan luokka reliabilitylayer
- * käyteään ack ja nack paketteja varmistamaan datan luotettava siirto
- * käytetään datagrampacket luokan metodeja
+ * toteutetaan luokka reliabilitylayer mahdollistamaan luotettava datan siirto UDPn päällä stop-and-wait periaatteella
+ * kurose & ross: computer networking: a top-down approach -kirjan mukaisesti täyttäen versio 3.0 vaatimukset
+ * jokainen datapaketti on rakenteeltaan |seq | data | crc|
+ * tarkistetaan vastaanotetut paketit ennen niiden lähettämistä sovellukselle bittivirheiden sekä packet lossin (tai viiveen) varalta 
+ * bittivirheiden tunnistamiseksi käytettään crc8 tarkistussummaa. vastaanotetusta paketista lasketaan crc8 ja verrataan sitä paketin viimeiseen tavuun
+ * myös sekvenssinumero tarkistetaan vertaamalla sitä odotettuun sekvenssinumeroon, jotta voidaan tunnistaa duplikaatti paketit ja varmistaa oikea järjestys
+ * kuitataan vastaanotetut paketit lähettämällä ack lähettäjälle vastaavalla sekvenssinumerolla
+ * korruptoituneelle tai duplikaattipaketille lähetetään ack edellisen hyväksytyn paketin sekvenssinumerolla, jotta lähettäjä tietää lähettää uudestaan
+ * ehjät ja odotetut paketit kuitataan ackillä, ja siirretään testisovellukselle, jotta lähettäjä voi siirtyä seuraavaan pakettiin
+ * muuten jäädään odottamaan uudestaan saapuvaa pakettia samalla odotetulla sekvenssinumerolla
  */
+
+
 public class ReliabilityLayer {
     private final DatagramSocket socket;
+    private byte seq = 0; // sekvenssinumero 0 tai 1
+    private byte expectedSeq = 0; // odotettu sekvenssinumero vastaanotettaville paketeille
 
+    private static final int TIMEOUT = 1000; 
 
     public ReliabilityLayer(DatagramSocket socket) {
         this.socket = socket;
     }
-// luodaan funktio paketin lähettämiseen 
+
+// luodaan funktio lähettämiseen 
     public void send(String message, InetAddress address, int port) throws IOException {
-        byte[] packetBytes = makePacket((byte) 0, message); // luodaan paketti sekvenssinumerolla 0, tekstillä ja crcllä
+        byte[] packetBytes = makePacket(seq, message); // luodaan paketti sekvenssinumerolla, tekstillä ja crcllä
+
+        socket.setSoTimeout(TIMEOUT); // asetetaan timeout
 
         while (true) {
             DatagramPacket packet = new DatagramPacket(
@@ -27,22 +42,39 @@ public class ReliabilityLayer {
             );
 
             socket.send(packet);
+            System.out.println("Sent data: " + message + " with seq: " + seq);
 
-            byte[] buffer = new byte[256];
-            DatagramPacket response = new DatagramPacket(buffer, buffer.length); // luodaan paketti ack/nack vastaanottoa varten
+            try {
+                byte[] buffer = new byte[256];
+                DatagramPacket ackPacket = new DatagramPacket(buffer, buffer.length); // luodaan datagrammipaketti ackille
 
-            socket.receive(response);
+                socket.receive(ackPacket);
 
-            int length = response.getLength();
+                int length = ackPacket.getLength();
 
-            // tarkistetaan onko ack/nack paketti tyhjä tai onko tapahtunut bittivirhe
-            if (isCorrupted(buffer, length)) {
-                System.out.println("ACK/NACK corrupted, resending DATA");
-                continue;
+                // tarkistetaan onko ack paketti tyhjä tai onko tapahtunut bittivirhe
+                if (isCorrupted(buffer, length)) {
+                    System.out.println("ACK corrupted");
+                    continue;
+                }
+
+                String text = getText(buffer, length);
+                byte ackSeq = getSeq(buffer);
+
+                if (text.equals("ACK") && ackSeq == seq)
+                {
+                    System.out.println("Received ACK for seq " + seq);
+                    seq = (byte) (1 - seq); // päivitetään sekvenssinumero seuraavaksi
+                    socket.setSoTimeout(0); // poistetaan timeout
+                    return; // data on onnistuneesti vastaanotettu, palataan
+                } else {
+                    System.out.println("Received NACK or wrong ACK seq");
+                }
+            } catch (SocketTimeoutException e) {
+                System.out.println("ACK timeout, resending packet with seq " + seq);
             }
         }
     }
-
 
     public String receive() throws IOException {
         while (true) {
@@ -54,19 +86,21 @@ public class ReliabilityLayer {
 
             // tarkistetaan onko paketti tyhjä tai onko tapahtunut bittivirhe
             if (isCorrupted(rec, length)) {
-                System.out.println("CRC ERROR, sending NACK");
+                // on korruptoitunut, lähetettään ack edelliselle paketille ja jäädään odottamaan uuta pakettia samalla odotetulla sekvenssinumerolla. dataa ei lähetetä sovellukselle
+                System.out.println("corrupted data, sending ack for previous packet" + " with seq " + (1 - expectedSeq));
+                byte previousSeq = (byte) (1 - expectedSeq); // edellisen paketin sekvenssinumero
 
-                byte[] nackBytes = makePacket((byte) 0, "NACK"); // luodaan nack paketti sekvenssinumerolla 0 ja teksitllä nack
+                byte[] ackBytes = makePacket(previousSeq, "ACK"); // luodaan ack paketti sekvenssinumerolla 0 ja teksitllä ack
                 
                 // luodaan nackille datagrampaketti joka lähtetetään takaisin lähettäjälle
-                DatagramPacket nack = new DatagramPacket(
-                        nackBytes, 
-                        nackBytes.length,
+                DatagramPacket ack = new DatagramPacket(
+                        ackBytes, 
+                        ackBytes.length,
                         paketti.getAddress(), // lähettäjän osoite ja portti
                         paketti.getPort()
                 );
 
-                socket.send(nack); // lähetetään paketti jossa teksti nak takasin lähettäjälle
+                socket.send(ack); // lähetetään ack 
                 continue;
                 // huom korruptoitunutta pakettia ei lähetetä sovelluselle
             }
@@ -77,26 +111,45 @@ public class ReliabilityLayer {
             if (text.equals("ACK") || text.equals("NACK")) {
                 continue;
             }
-            System.out.println("crc ok, sending ack");;
-            byte[] ackBytes = makePacket((byte)0, "ACK"); 
 
-                // luodaan ack paketti
+            // tarkistetaan onko saatu paketti odotettu sekvenssinumero
+            if (getSeq(rec) == expectedSeq) {
+                // odotettu = saatu, lähetetään ack, päivitetään sekvenssinumero ja palautettaan data
+                System.out.println("Received expected packet with seq " + expectedSeq + "as expected!");
+                byte[] ackBytes = makePacket(expectedSeq, "ACK"); // luodaan ack paketti sekvenssinumerolla 0 ja teksitllä ack
                 DatagramPacket ack = new DatagramPacket(
                         ackBytes,
                         ackBytes.length,
                         paketti.getAddress(),
                         paketti.getPort()
                 );
+                socket.send(ack); // lähetetään ack
+                expectedSeq = (byte) (1 - expectedSeq); // päivitetään odotettu sekvenssinumero seuraavaksi
+                System.out.println("Sent ack with seq " + getSeq(rec) + "now expecting packet with seq " + expectedSeq);
+                return text; // palautetaan vastaanotettu teksti sovellukselle
                 
-                socket.send(ack);
-
-                return text; // palautetaan vastaanotettu teksti sovellukselle!!!
+            } else { // saatu != odotettu, duplikaatti. lähetetään ack edelliselle paketille ja jäädäään odottamaan utta pakettia samalla odotetulla sekvenssinumerolla. dataa ei lähetetä sovellukselle
+               System.out.println("Received duplicate packet with seq " +  getSeq(rec)+ ", expected " + expectedSeq);
+                    byte previousSeq = (byte) (1 - expectedSeq); // edellisen paketin sekvenssinumero
+    
+                    byte[] ackBytes = makePacket(previousSeq, "ACK"); 
+                    
+                    // luodaan ack datagrampaketti joka lähtetetään takaisin lähettäjälle
+                    DatagramPacket ack = new DatagramPacket(
+                            ackBytes, 
+                            ackBytes.length,
+                            paketti.getAddress(), // lähettäjän osoite ja portti
+                            paketti.getPort()
+                    );
+                System.out.println("Sent ack for previous packet with seq " + previousSeq);
+                    socket.send(ack); // lähetetään ack 
             } 
         }
+    }
 
 // tarkistetaaan onko paketti tyhjä tai onko tapahtunut bittivirhe
     public static boolean isCorrupted(byte[] packet, int length) {
-        if (length < 1) {
+        if (length < 2) { // kasvatetaan myös vaatimus paketin minimipituudelle > pitää olla ainakin crc ja sekvenssinumero
             System.out.println("Tyhjä paketti");
              return true;
         }
@@ -123,7 +176,7 @@ public class ReliabilityLayer {
 
     // funktio paketin tekstille
     private static String getText(byte[] packet, int length) {
-        return (new String(packet, 0, length - 1, StandardCharsets.UTF_8));
+        return (new String(packet, 1, length - 2, StandardCharsets.UTF_8));
     }
 
     // sekvenssinumerot alusta
@@ -131,68 +184,4 @@ public class ReliabilityLayer {
         return packet[0];
     }
 
-    public String receiveOnlyAck() throws IOException {
-        while (true) {
-            byte[] rec = new byte[256];
-            DatagramPacket response = new DatagramPacket(rec, rec.length);
-
-            socket.receive(response);
-
-            int length = response.getLength();
-
-            if (isCorrupted(rec, length)) {
-                System.out.println("crc error no ack sent");
-                continue;
-            }
-            String text = getText(rec, length);
-
-            if (text.equals("ACK") || text.equals("NACK")) {
-                continue;
-            }
-
-            System.out.println("crc ok, sending ack");
-            byte[] ackBytes = makePacket((byte)0, "ACK");
-                DatagramPacket ack = new DatagramPacket(
-                        ackBytes,
-                        ackBytes.length,
-                        response.getAddress(),
-                        response.getPort()
-                );
-                
-                socket.send(ack);
-                return text;
-        }
-    }
-
-    public String receiveOnlyNack() throws IOException {
-        while (true) {
-            byte[] rec = new byte[256];
-            DatagramPacket response = new DatagramPacket(rec, rec.length);
-
-            socket.receive(response);
-
-            int length = response.getLength();
-
-            if (isCorrupted(rec, length)) {
-                System.out.println("crc error sent nack");
-                byte[] nackBytes = makePacket((byte)0, "NACK");
-                DatagramPacket nack = new DatagramPacket(
-                        nackBytes,
-                        nackBytes.length,
-                        response.getAddress(),
-                        response.getPort()
-                );
-                socket.send(nack);
-            
-                continue;
-            }
-            String text = getText(rec, length);
-
-            if (text.equals("ACK") || text.equals("NACK")) {
-                continue;
-            }
-            System.out.println("crc ok no ack sent");
-                return text;
-        }
-    }
 }

@@ -10,56 +10,15 @@ class TestApp {
     private static DatagramSocket soketti = null; // luodaan datagrammisoketti
 
     public static void main(String[] args) throws IOException {
-        Scanner reader = new Scanner(System.in);
-        System.out.println("Enter mode (acks/nacks/all): ");
-        String func = reader.nextLine();
-        System.out.println("Selected mode: " + func);
-
-       // soketti = new DatagramSocket(50267); // alustetaan soketti haluttuun porttiin
         soketti = new VirtualSocket(50267); // alustetaan virtuaalinen soketti
         ReliabilityLayer reliabilityLayer = new ReliabilityLayer(soketti);
         boolean listening = true;
 
         while (listening) {
             try {
-                String message;
-                if (func.equals("acks")) {
-                    message = reliabilityLayer.receiveOnlyAck();
-                } else if (func.equals("nacks")) {
-                    message = reliabilityLayer.receiveOnlyNack();
-                } else {
-                    message = reliabilityLayer.receive();
-                }
-                System.out.println("Received: " + message);
-                /* byte[] rec = new byte[256];
-                DatagramPacket paketti = new DatagramPacket(rec, rec.length);   // luodaan datagrammipaketti haluttuun porttiin
-                soketti.receive(paketti); // soketti odottaa datagrammipakettia
-
-                int length = paketti.getLength();
-                if (length < 1) {
-                        System.out.println("Tyhjä paketti");
-                        continue;
-                    }
-                byte receivedCrc = rec[length - 1];
-                byte calculatedCrc = CRC8.calculate(rec, length - 1);
-
-                byte seq = rec[0]; // sekvenssinumero on ensimmäisessä tavussa
-
-
-                if (receivedCrc == calculatedCrc) {
-                    System.out.println("CRC OK");
-                    System.out.println("Received: " + (new String(rec, 0, length - 1)));
-                    System.out.println("seq"+ seq); // sekvenssinumero on ensimmäisessä tavussa
-                } else {
-                    System.out.println("CRC ERROR");
-                    System.out.println("Received CRC: " + (receivedCrc & 0xFF));
-                    System.out.println("Calculated CRC: " + (calculatedCrc & 0xFF));
-                }         
-
-
-                // System.out.println("Received: " + (new String(rec, 0, paketti.getLength()-1))); // tulostetaan vastaanotettu data
-                // System.out.println("vika tavu: " + rec[paketti.getLength()-1]); // crc tavu kokonaislukuna
-}*/}
+                String message = reliabilityLayer.receive();
+                System.out.println("THE TEST APPLICATION RECEIVED: " + message);
+            }
             catch (IOException e) {
                 listening = false;
                 System.out.println("catch");

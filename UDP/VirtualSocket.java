@@ -1,7 +1,7 @@
 import java.io.*;
 import java.net.*;
 import java.util.Random;
-// import java.lang.Thread;
+import java.lang.Thread;
 
 /**
  * virtuaalinen udp soketti
@@ -10,9 +10,9 @@ import java.util.Random;
 
 public class VirtualSocket extends DatagramSocket {
     private static final Random rand = new Random();
-    // private static double p_drop = 0; pudotetun paketin todennäköisyys -> crc8 varten nolla
-    // private static double p_delay = 0; // viivästetyn paketin todennäköisyys  -> crc8 varten nolla
-    private static double p_error = 0.5; // virheellisen paketin todennäiköisyys
+    private static double p_drop = 0.3; // pudotetun paketin todennäköisyys -> crc8 varten nolla
+    private static double p_delay = 0.3; // viivästetyn paketin todennäköisyys  -> crc8 varten nolla
+    private static double p_error = 0.3; // virheellisen paketin todennäiköisyys
 
     // constructor ilman porttinumeroa
     public VirtualSocket() throws SocketException {
@@ -27,13 +27,13 @@ public class VirtualSocket extends DatagramSocket {
     public void receive(DatagramPacket paketti) throws IOException {
         while (true) {  
             super.receive(paketti); // paketti vastaanotetaan normaalisti
-              /* if (rand.nextDouble() <= p_drop) { // paketti pudotetaan 50% todennäköisyydellä
+               if (rand.nextDouble() <= p_drop) { // paketti pudotetaan 50% todennäköisyydellä
                 System.out.println("Packet dropped"); // does not pass the packet to the application
             }
             // jos pakettia ei pudoteta, se voidaan viivästyttää
             else {
                 System.out.println("Packet received");
-                 //****  if (rand.nextDouble() <= p_delay) { // paketti viivästetään 50% todennäköisyydellä
+                if (rand.nextDouble() <= p_delay) { // paketti viivästetään 50% todennäköisyydellä
                      int delay = rand.nextInt(1000); // viivästys 0-1000 ms
                             try {
                                 System.out.println("Packet delayed by " + delay + " ms");
@@ -42,7 +42,7 @@ public class VirtualSocket extends DatagramSocket {
                                 Thread.currentThread().interrupt();
                         }
                     }
-                    */if (paketti.getLength() > 0 && rand.nextDouble() <= p_error) { // generoidaan bittivirhe 50% todennäköisyydellä
+                    if (paketti.getLength() > 0 && rand.nextDouble() <= p_error) { // generoidaan bittivirhe 50% todennäköisyydellä
                         byte[] data = paketti.getData();
                         int index = rand.nextInt(paketti.getLength() - 1); // satunnainen indeksi paketissa (ei viimeistä tavua = CRC)
                         int bit = rand.nextInt(8); // satunnainen bitti indeksin sisällä
@@ -53,3 +53,4 @@ public class VirtualSocket extends DatagramSocket {
             }
         }
     }
+}
