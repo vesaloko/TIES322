@@ -8,8 +8,7 @@ import java.util.Random;
  * Reliability on top of UDP: Virtual Socket 2
  */
 
-public class VirtualSocket extends DatagramSocket 
-{
+public class VirtualSocket extends DatagramSocket {
     private static final Random rand = new Random();
     // private static double p_drop = 0; pudotetun paketin todennäköisyys -> crc8 varten nolla
     // private static double p_delay = 0; // viivästetyn paketin todennäköisyys  -> crc8 varten nolla

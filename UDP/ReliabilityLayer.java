@@ -163,4 +163,36 @@ public class ReliabilityLayer {
                 return text;
         }
     }
+
+    public String receiveOnlyNack() throws IOException {
+        while (true) {
+            byte[] rec = new byte[256];
+            DatagramPacket response = new DatagramPacket(rec, rec.length);
+
+            socket.receive(response);
+
+            int length = response.getLength();
+
+            if (isCorrupted(rec, length)) {
+                System.out.println("crc error sent nack");
+                byte[] nackBytes = makePacket((byte)0, "NACK");
+                DatagramPacket nack = new DatagramPacket(
+                        nackBytes,
+                        nackBytes.length,
+                        response.getAddress(),
+                        response.getPort()
+                );
+                socket.send(nack);
+            
+                continue;
+            }
+            String text = getText(rec, length);
+
+            if (text.equals("ACK") || text.equals("NACK")) {
+                continue;
+            }
+            System.out.println("crc ok no ack sent");
+                return text;
+        }
+    }
 }

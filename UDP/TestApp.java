@@ -1,5 +1,6 @@
 import java.io. *;
 import java.net.*;
+import java.util.Scanner;
 
 /**
  * UDP virtual socketin testisovellus
@@ -7,15 +8,29 @@ import java.net.*;
  */
 class TestApp {
     private static DatagramSocket soketti = null; // luodaan datagrammisoketti
+
     public static void main(String[] args) throws IOException {
+        Scanner reader = new Scanner(System.in);
+        System.out.println("Enter mode (acks/nacks/all): ");
+        String func = reader.nextLine();
+        System.out.println("Selected mode: " + func);
+
        // soketti = new DatagramSocket(50267); // alustetaan soketti haluttuun porttiin
         soketti = new VirtualSocket(50267); // alustetaan virtuaalinen soketti
         ReliabilityLayer reliabilityLayer = new ReliabilityLayer(soketti);
         boolean listening = true;
+
         while (listening) {
             try {
-                    String message = reliabilityLayer.receiveOnlyAck();
-                    System.out.println("Received: " + message);
+                String message;
+                if (func.equals("acks")) {
+                    message = reliabilityLayer.receiveOnlyAck();
+                } else if (func.equals("nacks")) {
+                    message = reliabilityLayer.receiveOnlyNack();
+                } else {
+                    message = reliabilityLayer.receive();
+                }
+                System.out.println("Received: " + message);
                 /* byte[] rec = new byte[256];
                 DatagramPacket paketti = new DatagramPacket(rec, rec.length);   // luodaan datagrammipaketti haluttuun porttiin
                 soketti.receive(paketti); // soketti odottaa datagrammipakettia
