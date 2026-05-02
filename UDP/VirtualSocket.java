@@ -1,7 +1,7 @@
 import java.io.*;
 import java.net.*;
 import java.util.Random;
-import java.lang.Thread;
+// import java.lang.Thread;
 
 /**
  * virtuaalinen udp soketti
@@ -11,8 +11,8 @@ import java.lang.Thread;
 public class VirtualSocket extends DatagramSocket 
 {
     private static final Random rand = new Random();
-    private static double p_drop = 0; // pudotetun paketin todennäköisyys -> crc8 varten nolla
-    private static double p_delay = 0; // viivästetyn paketin todennäköisyys  -> crc8 varten nolla
+    // private static double p_drop = 0; pudotetun paketin todennäköisyys -> crc8 varten nolla
+    // private static double p_delay = 0; // viivästetyn paketin todennäköisyys  -> crc8 varten nolla
     private static double p_error = 0.5; // virheellisen paketin todennäiköisyys
 
     // constructor ilman porttinumeroa

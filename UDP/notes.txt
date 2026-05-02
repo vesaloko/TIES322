@@ -1,0 +1,39 @@
+Positive and Negative ACKs 
+- poistetaan muut kuin bittivirheet heetkeksi
+- lisätään crc8
+Add to your data packet some method for detecting at least a single bit error,
+    1. vastaanota paketti
+    2. erota data ja CRC-tavu (viimeinen)
+    3. laske CRC uudelleen datasta
+    4. vertaa laskettua CRC:tä vastaanotettuun CRC:hen
+    5. jos samat -> data kunnossa
+    6. jos eri -> data vioittunut
+
+RDT positive and negative ACKs
+jos datapaketti on kunnossa:
+    lähetä ACK 
+    anna data sovellukselle
+
+jos datapaketti on vioittunut:
+    lähetä NACK
+    älä anna dataa sovellukselle
+
+
+RDT only positive ACKs
+jos datapaketti on kunnossa:
+    lähetä ACK 
+    anna data sovellukselle
+
+jos datapaketti on vioittunut:
+    älä lähetä mitään
+
+RDT only negative ACKs
+jos datapaketti on kunnossa:
+    ei lähetetä mitään
+    anna data sovellukselle
+
+jos datapaketti on vioittunut:
+    lähetä NACK
+
+
+application -> reliabilitylayer -> virtualsocket
