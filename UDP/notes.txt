@@ -1,39 +1,204 @@
 Positive and Negative ACKs 
-- poistetaan muut kuin bittivirheet heetkeksi
-- lisätään crc8
-Add to your data packet some method for detecting at least a single bit error,
-    1. vastaanota paketti
-    2. erota data ja CRC-tavu (viimeinen)
-    3. laske CRC uudelleen datasta
-    4. vertaa laskettua CRC:tä vastaanotettuun CRC:hen
-    5. jos samat -> data kunnossa
-    6. jos eri -> data vioittunut
+    - poistetaan muut kuin bittivirheet heetkeksi
+    - lisätään crc8
+    Add to your data packet some method for detecting at least a single bit error,
+        1. vastaanota paketti
+        2. erota data ja CRC-tavu (viimeinen)
+        3. laske CRC uudelleen datasta
+        4. vertaa laskettua CRC:tä vastaanotettuun CRC:hen
+        5. jos samat -> data kunnossa
+        6. jos eri -> data vioittunut
 
-RDT positive and negative ACKs
-jos datapaketti on kunnossa:
-    lähetä ACK 
-    anna data sovellukselle
+    RDT positive and negative ACKs
+    jos datapaketti on kunnossa:
+        lähetä ACK 
+        anna data sovellukselle
 
-jos datapaketti on vioittunut:
-    lähetä NACK
-    älä anna dataa sovellukselle
-
-
-RDT only positive ACKs
-jos datapaketti on kunnossa:
-    lähetä ACK 
-    anna data sovellukselle
-
-jos datapaketti on vioittunut:
-    älä lähetä mitään
-
-RDT only negative ACKs
-jos datapaketti on kunnossa:
-    ei lähetetä mitään
-    anna data sovellukselle
-
-jos datapaketti on vioittunut:
-    lähetä NACK
+    jos datapaketti on vioittunut:
+        lähetä NACK
+        älä anna dataa sovellukselle
 
 
-application -> reliabilitylayer -> virtualsocket
+    RDT only positive ACKs
+    jos datapaketti on kunnossa:
+        lähetä ACK 
+        anna data sovellukselle
+
+    jos datapaketti on vioittunut:
+        älä lähetä mitään
+
+    RDT only negative ACKs
+    jos datapaketti on kunnossa:
+        ei lähetetä mitään
+        anna data sovellukselle
+
+    jos datapaketti on vioittunut:
+        lähetä NACK
+
+
+    application -> reliabilitylayer -> virtualsocket
+
+
+    3. Reliable data transfer with only positive ACKs
+    crc ok -> lähetetään ACK
+    crc ei ok -> ei lähetetä mitään
+
+    lähettäjä:
+    tulee ack -> ok
+    ei tule ack -> timeoutin jälkeen lähetä sama data uudelleen
+
+
+Reliable Transport protocol 
+    Implement reliable data transfer on top of UDP that can handle packet loss, packet delay and single bit error (detect error and react accordingly).
+A Top-Down Approach Chapter 3.4. and version 3.0 of the reliable transport protocol
+
+rtd 1.0
+>> sender
+- accepts data from the upper layer
+- creates a packet containing the data
+- sends the packet to the channel
+
+>>> receiver
+- receives a packet from the underlying channel
+- removes the data from the packer 
+- passes the data up to the uper layer
+
+Reliable Data Transfer over a Channel with Bit Errors: rdt2.0
+- positive / negative acknowledgments
+    - error detection: bit error occurences
+    - receiver feedback: ack/nack packets from the receiver to the sender
+    - retransmission: a packet with error -> retransmission
+
+>>> sender
+- rtd 1.0
+- sender includes a packet containgin the data to be sent, along with a packet checksym
+- waiting for nack / ack
+- if ack : return to waiting state
+- if nack: retransmit + wait for ack / nack. 
+    - during this no further data moves!!! no more data from upper lauer
+
+>>> receiver
+- rtd1.0
+- on packet arrival, replies with nack / ack depending on whether the received packet is corrupted
+
+>>> POSSIBILITY THAT THE NACK / ACK IS corrupted
+- checksum bits to nack ack?
+-> SEQUENCE NUMBERS to determine wether or not the received packet is a retransmission
+    - expected sequencenumber
+    - 
+
+Principles of Reliable Data Transfer rdt3.0:
+- corrupting bits / losing packets > how to detect packet loss, what to do when packet loss occurs
+- checksum, sequence numbers, ACK packets and retransmissions
+
+>>> 
+- datapaketti voi kadota / korruptoitua / viivästyä
+- ack voi kadota / korruptoitua / viivästyä
+
+
+packet loss:
+- either the packet or the receivers ack gets lost
+-> sender gets no reply from the receivers
+- if the sender is willing to wait long enough that packet loss is certain -> retransmit the data
+    - wait time? minimum round trip delay between sender - receiver + the time needed to process the packet
+    - difficult to estimate. protocol should ideally recover asap. > packet loss is likely altought not guaranteed
+    - if ack not received during this time -> retransmissions
+    - duplicate packets! > sequence numbers to handle
+    - same effect as nack with ack for the last correctly received packet -> sender that receives two acks for the same packet
+    knows that the receiver did not correctly receive the packet
+    -> receiver must include the sequence number of the packet being acknowledged by received ack message
+>>>> sender needs:
+- timer for each packet sent
+- respond to a timer interrupt > take actions if needed
+- stop the timer
+
+
+""""
+packet 
+| seq | data | CRC8 |
+
+where
+seq = 0 | 1
+data = message | "ack"
+CRC8 
+
+>> jos vastaanottaja odottaa pakettia seq = 0 ja saa oikean datapaketin, lähetetään
+data sovellukselle
+| 0 | ACK | CRC8 |
+-> vaihtaa odottamaan seuraavaa jolle seq=1
+
+>> jos vastaanottaja odottaa pakettia seq = 0 ja saa paketin jolle seq = 1 -> duplikaatti
+vastanottaja ei lähetä dataa sovellukselle
+| 1| ACK | CRC8 |
+ja jää odottamaa pakettia jolle seq = 0
+
+>> jos vastaanottaja saa korruptoituneen paketin, odottaa seq = 0
+-> ack viimeksi hyväksytylle paketille
+| previousSeq =  | ACK | CRC8 |
+
+
+-----
+receiver:
+- tietää expectedSeq
+
+tarkistaa:
+- onko paketti vioittunut
+    - jos on   
+        > ack viimeksi vastaanotetulle paketille
+        > älä anna dataa solvellukselle
+    - jos ei 
+        > onko seq == expectedSeq  
+            - on 
+                > anna data sovellukselle
+                > lähetä ack tälle seq
+                > vaihda expectedSeq
+            - ei
+                > älä anna sovellukselle dataa, koska kyseessä on duplikaatti
+                > lähetä ack uudestaan viimeksi hyväksytylle paketille
+
+- sender hoitaa viiveen käsittelyn?
+__________________
+Go-Back-N (GBN)
+- the sender is allowed to transmit pultiple packets without waiting for an acknowledgement, but is constrained to have 
+no more thatn some allowable number N unacknowledged packets in the pipeline
+- base > sequence number of the oldest unacknowledged packet
+- nexseqsum to be the smallest unused sequencenumber (next to be used)
+- four intevals in the range of sequence numbers can be identifiet
+    - interval [0,base-1] packets that have been transmitted and acknowledged
+    - [base, nextseqsum-1] packets that have been sent, but not acknowledged
+    - [nextseqsum, base+N-1] used for packets that can be sent immideately, should data arrive from the upper layer
+    - seq >= base + N cannot be used until an unacknowledged packet currentylu in the pipeline has been acknowledged
+
+- N > window size
+- why? flow control, tcp congestion control
+
+- packets seq num is carried in packet header. if k is th enumber of bits in the seq number field, the range of 
+sequence numbers is thus [0, 2k-1]
+
+sender
+- invocation from above. check if the window is full. if not > packet is sent. if full > back to the upper layer / buffered
+- reciept of an ack. cumulative acknowledgement, indicating that all packets with sequence number up to n have been correctly received
+- timeout event. lost or delayed packet? if timeout > sender resends ALL PACKETS! that have been sent but not acknowledged
+
+
+receiver
+- if packet with seq n is received correctly and in order > send ack for packet n + deliver data
+> all other cases: discard packets. resend ack to the most recent received packet. 
+- recall all data has to be in order to hte upper layer!
+- only information is the seq num of the next in-order packet expectedseqnum
+
+
+
+jos paketti on korruptoitunut:
+    lähetä ACK lastAcked
+    älä palauta dataa sovellukselle
+
+jos seq == expectedSeq:
+    hyväksy paketti
+    palauta data sovellukselle
+    lähetä ACK seq
+    expectedSeq++
+
+jos seq != expectedSeq:
+    hylkää paketti
+    lähetä ACK lastAcked

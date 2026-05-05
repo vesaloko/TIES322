@@ -11,7 +11,7 @@ class TestApp {
 
     public static void main(String[] args) throws IOException {
         soketti = new VirtualSocket(50267); // alustetaan virtuaalinen soketti
-        ReliabilityLayer reliabilityLayer = new ReliabilityLayer(soketti);
+        GBNLayer reliabilityLayer = new GBNLayer(soketti);
         boolean listening = true;
 
         while (listening) {

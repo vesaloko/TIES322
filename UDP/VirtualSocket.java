@@ -10,9 +10,9 @@ import java.lang.Thread;
 
 public class VirtualSocket extends DatagramSocket {
     private static final Random rand = new Random();
-    private static double p_drop = 0.3; // pudotetun paketin todennäköisyys -> crc8 varten nolla
-    private static double p_delay = 0.3; // viivästetyn paketin todennäköisyys  -> crc8 varten nolla
-    private static double p_error = 0.3; // virheellisen paketin todennäiköisyys
+    private static double p_drop = 0; // pudotetun paketin todennäköisyys -> crc8 varten nolla
+    private static double p_delay = 0; // viivästetyn paketin todennäköisyys  -> crc8 varten nolla
+    private static double p_error = 0; // virheellisen paketin todennäiköisyys
 
     // constructor ilman porttinumeroa
     public VirtualSocket() throws SocketException {
