@@ -13,6 +13,7 @@ import java.nio.charset.StandardCharsets;
  * korruptoituneelle tai duplikaattipaketille lähetetään ack edellisen hyväksytyn paketin sekvenssinumerolla, jotta lähettäjä tietää lähettää uudestaan
  * ehjät ja odotetut paketit kuitataan ackillä, ja siirretään testisovellukselle, jotta lähettäjä voi siirtyä seuraavaan pakettiin
  * muuten jäädään odottamaan uudestaan saapuvaa pakettia samalla odotetulla sekvenssinumerolla
+ * 
  */
 
 

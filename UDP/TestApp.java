@@ -11,12 +11,12 @@ class TestApp {
 
     public static void main(String[] args) throws IOException {
         soketti = new VirtualSocket(50267); // alustetaan virtuaalinen soketti
-        GBNLayer reliabilityLayer = new GBNLayer(soketti);
+        SRLayer srLayer = new SRLayer(soketti);
         boolean listening = true;
 
         while (listening) {
             try {
-                String message = reliabilityLayer.receive();
+                String message = srLayer.receive();
                 System.out.println("THE TEST APPLICATION RECEIVED: " + message);
             }
             catch (IOException e) {
